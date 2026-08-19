@@ -1,0 +1,94 @@
+desc:Live32 Precision Limiter
+// Clean stereo-linked peak limiter for the Live32 teaching console.
+// Inspired by live-console precision limiting workflow; not a model of proprietary hardware.
+options:no_meter
+
+in_pin:Main L
+in_pin:Main R
+in_pin:Key L
+in_pin:Key R
+in_pin:Pre EQ L
+in_pin:Pre EQ R
+in_pin:Post EQ L
+in_pin:Post EQ R
+out_pin:Main L
+out_pin:Main R
+out_pin:Key L
+out_pin:Key R
+out_pin:Pre EQ L
+out_pin:Pre EQ R
+out_pin:Post EQ L
+out_pin:Post EQ R
+
+
+slider1:0<0,18,0.1>Input Gain (dB)
+slider2:-0.3<-12,0,0.1>Output Ceiling (dB)
+slider3:20<0,100,1>Squeeze (%)
+slider4:3<0,12,0.1>Knee (dB)
+slider5:0.5<0.05,10,0.05:log!>Attack (ms)
+slider6:120<10,1000,1:log!>Release (ms)
+slider7:0<0,1,1{OFF,ON}>Auto Gain
+slider8:0<-18,6,0.1>Output Gain (dB)
+slider9:0<-40,0,0.1>-Gain Reduction (dB)
+
+@init
+gr_db=0;
+meter_gr=0;
+
+@slider
+in_gain=10^(slider1/20);
+ceiling_db=slider2;
+ceiling=10^(ceiling_db/20);
+squeeze=slider3/100;
+ratio=1+squeeze*19;
+thresh_db=ceiling_db-squeeze*10;
+knee=max(slider4,0.001);
+att=max(slider5,0.01)/1000;
+rel=max(slider6,1)/1000;
+att_c=exp(-1/(att*srate));
+rel_c=exp(-1/(rel*srate));
+auto_db=slider7>=0.5 ? squeeze*4.5 : 0;
+out_gain=10^((slider8+auto_db)/20);
+
+@block
+slider9=meter_gr;
+sliderchange(slider9);
+meter_gr=0;
+
+@sample
+l=spl0*in_gain;
+r=spl1*in_gain;
+peak=max(abs(l),abs(r));
+in_db=20*log(max(peak,0.000000001))/log(10);
+
+// Soft-knee compression leading into a hard ceiling.
+over=in_db-thresh_db;
+comp_db=in_db;
+over <= -knee*0.5 ? (
+  comp_db=in_db;
+) : over >= knee*0.5 ? (
+  comp_db=thresh_db+over/ratio;
+) : (
+  // quadratic interpolation through the knee
+  x=over+knee*0.5;
+  comp_db=in_db-(1-1/ratio)*x*x/(2*knee);
+);
+comp_db > ceiling_db ? comp_db=ceiling_db;
+target_gr=min(0,comp_db-in_db);
+
+target_gr < gr_db ? (
+  gr_db=att_c*gr_db+(1-att_c)*target_gr;
+) : (
+  gr_db=rel_c*gr_db+(1-rel_c)*target_gr;
+);
+g=10^(gr_db/20)*out_gain;
+l*=g; r*=g;
+
+// Final safety ceiling. With normal attack settings this should only catch sub-ms overshoot.
+limit=ceiling*out_gain;
+l>limit ? l=limit;
+l < -limit ? l=-limit;
+r>limit ? r=limit;
+r < -limit ? r=-limit;
+spl0=l; spl1=r;
+meter_gr=min(meter_gr,gr_db);

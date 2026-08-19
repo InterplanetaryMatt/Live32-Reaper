@@ -1,0 +1,79 @@
+desc:Live32 FET 76 Compressor
+// Fast FET-style compressor for Live32 inserts.
+// Musical teaching model, not a circuit clone of any proprietary processor.
+options:no_meter
+
+
+in_pin:Main L
+in_pin:Main R
+in_pin:Key L
+in_pin:Key R
+in_pin:Pre EQ L
+in_pin:Pre EQ R
+in_pin:Post EQ L
+in_pin:Post EQ R
+out_pin:Main L
+out_pin:Main R
+out_pin:Key L
+out_pin:Key R
+out_pin:Pre EQ L
+out_pin:Pre EQ R
+out_pin:Post EQ L
+out_pin:Post EQ R
+
+
+slider1:0<-12,24,0.1>Input (dB)
+slider2:0<-18,18,0.1>Output (dB)
+slider3:3<1,7,0.01>Attack (1 slow - 7 fast)
+slider4:4<1,7,0.01>Release (1 slow - 7 fast)
+slider5:0<0,4,1{4:1,8:1,12:1,20:1,ALL}>Ratio
+slider6:0<0,1,1{GR,OUTPUT}>Meter
+slider7:0<-40,0,0.1>-Gain Reduction (dB)
+
+@init
+function live32_tanh(x) local(z) (
+  x >= 10 ? 1 :
+  x <= -10 ? -1 : (
+    z=exp(2*x);
+    (z-1)/(z+1);
+  );
+);
+env=0; gr_db=0; meter_gr=0;
+
+@slider
+in_gain=10^(slider1/20);
+out_gain=10^(slider2/20);
+// 1176-style knob direction: 7 is fastest.
+a=(slider3-1)/6;
+r=(slider4-1)/6;
+attack_ms=0.8*(0.025/0.8)^a;
+release_ms=1100*(50/1100)^r;
+att=exp(-1/(max(attack_ms,0.01)*0.001*srate));
+rel=exp(-1/(max(release_ms,1)*0.001*srate));
+slider5==0 ? ratio=4 : slider5==1 ? ratio=8 : slider5==2 ? ratio=12 : slider5==3 ? ratio=20 : ratio=30;
+allmode=slider5>=4;
+drive=allmode ? 1.55 : 1.18;
+sat_norm=live32_tanh(drive);
+threshold=-18;
+knee=allmode ? 8 : 3;
+
+@block
+slider7=meter_gr; sliderchange(slider7); meter_gr=0;
+
+@sample
+l=spl0*in_gain; r=spl1*in_gain;
+// Mild FET-ish input curvature; ALL mode pushes it harder.
+l=live32_tanh(l*drive)/sat_norm; r=live32_tanh(r*drive)/sat_norm;
+peak=max(abs(l),abs(r));
+level=20*log(max(peak,0.000000001))/log(10);
+over=level-threshold;
+outdb=level;
+over <= -knee*0.5 ? outdb=level : over >= knee*0.5 ? outdb=threshold+over/ratio : (
+  x=over+knee*0.5;
+  outdb=level-(1-1/ratio)*x*x/(2*knee);
+);
+target=min(0,outdb-level);
+target<gr_db ? gr_db=att*gr_db+(1-att)*target : gr_db=rel*gr_db+(1-rel)*target;
+g=10^(gr_db/20)*out_gain;
+spl0=l*g; spl1=r*g;
+meter_gr=min(meter_gr,gr_db);

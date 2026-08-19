@@ -1,0 +1,103 @@
+desc:Live32 31-Band Graphic EQ
+// 1/3-octave stereo graphic EQ for Live32 inserts.
+// 31 fixed-frequency peaking filters, +/-12 dB.
+options:no_meter
+
+in_pin:Main L
+in_pin:Main R
+in_pin:Key L
+in_pin:Key R
+in_pin:Pre EQ L
+in_pin:Pre EQ R
+in_pin:Post EQ L
+in_pin:Post EQ R
+out_pin:Main L
+out_pin:Main R
+out_pin:Key L
+out_pin:Key R
+out_pin:Pre EQ L
+out_pin:Pre EQ R
+out_pin:Post EQ L
+out_pin:Post EQ R
+
+
+slider1:0<-12,12,0.5>20 Hz
+slider2:0<-12,12,0.5>25 Hz
+slider3:0<-12,12,0.5>31.5 Hz
+slider4:0<-12,12,0.5>40 Hz
+slider5:0<-12,12,0.5>50 Hz
+slider6:0<-12,12,0.5>63 Hz
+slider7:0<-12,12,0.5>80 Hz
+slider8:0<-12,12,0.5>100 Hz
+slider9:0<-12,12,0.5>125 Hz
+slider10:0<-12,12,0.5>160 Hz
+slider11:0<-12,12,0.5>200 Hz
+slider12:0<-12,12,0.5>250 Hz
+slider13:0<-12,12,0.5>315 Hz
+slider14:0<-12,12,0.5>400 Hz
+slider15:0<-12,12,0.5>500 Hz
+slider16:0<-12,12,0.5>630 Hz
+slider17:0<-12,12,0.5>800 Hz
+slider18:0<-12,12,0.5>1 kHz
+slider19:0<-12,12,0.5>1.25 kHz
+slider20:0<-12,12,0.5>1.6 kHz
+slider21:0<-12,12,0.5>2 kHz
+slider22:0<-12,12,0.5>2.5 kHz
+slider23:0<-12,12,0.5>3.15 kHz
+slider24:0<-12,12,0.5>4 kHz
+slider25:0<-12,12,0.5>5 kHz
+slider26:0<-12,12,0.5>6.3 kHz
+slider27:0<-12,12,0.5>8 kHz
+slider28:0<-12,12,0.5>10 kHz
+slider29:0<-12,12,0.5>12.5 kHz
+slider30:0<-12,12,0.5>16 kHz
+slider31:0<-12,12,0.5>20 kHz
+slider32:0<-12,12,0.1>Output Gain (dB)
+
+@init
+freq=0; gain=40; b0a=80; b1a=120; b2a=160; a1a=200; a2a=240;
+z1l=300; z2l=340; z1r=380; z2r=420;
+freq[0]=20; freq[1]=25; freq[2]=31.5; freq[3]=40; freq[4]=50; freq[5]=63; freq[6]=80; freq[7]=100;
+freq[8]=125; freq[9]=160; freq[10]=200; freq[11]=250; freq[12]=315; freq[13]=400; freq[14]=500; freq[15]=630;
+freq[16]=800; freq[17]=1000; freq[18]=1250; freq[19]=1600; freq[20]=2000; freq[21]=2500; freq[22]=3150; freq[23]=4000;
+freq[24]=5000; freq[25]=6300; freq[26]=8000; freq[27]=10000; freq[28]=12500; freq[29]=16000; freq[30]=20000;
+memset(z1l,0,31); memset(z2l,0,31); memset(z1r,0,31); memset(z2r,0,31);
+
+@slider
+gain[0]=slider1; gain[1]=slider2; gain[2]=slider3; gain[3]=slider4; gain[4]=slider5; gain[5]=slider6; gain[6]=slider7; gain[7]=slider8;
+gain[8]=slider9; gain[9]=slider10; gain[10]=slider11; gain[11]=slider12; gain[12]=slider13; gain[13]=slider14; gain[14]=slider15; gain[15]=slider16;
+gain[16]=slider17; gain[17]=slider18; gain[18]=slider19; gain[19]=slider20; gain[20]=slider21; gain[21]=slider22; gain[22]=slider23; gain[23]=slider24;
+gain[24]=slider25; gain[25]=slider26; gain[26]=slider27; gain[27]=slider28; gain[28]=slider29; gain[29]=slider30; gain[30]=slider31;
+q=4.318;
+i=0;
+loop(31,
+  f=min(freq[i],srate*0.45);
+  A=10^(gain[i]/40);
+  w0=2*$pi*f/srate;
+  alpha=sin(w0)/(2*q);
+  c=cos(w0);
+  a0=1+alpha/A;
+  b0a[i]=(1+alpha*A)/a0;
+  b1a[i]=(-2*c)/a0;
+  b2a[i]=(1-alpha*A)/a0;
+  a1a[i]=(-2*c)/a0;
+  a2a[i]=(1-alpha/A)/a0;
+  i+=1;
+);
+outgain=10^(slider32/20);
+
+@sample
+xl=spl0; xr=spl1;
+i=0;
+loop(31,
+  yl=b0a[i]*xl+z1l[i];
+  z1l[i]=b1a[i]*xl-a1a[i]*yl+z2l[i];
+  z2l[i]=b2a[i]*xl-a2a[i]*yl;
+  xl=yl;
+  yr=b0a[i]*xr+z1r[i];
+  z1r[i]=b1a[i]*xr-a1a[i]*yr+z2r[i];
+  z2r[i]=b2a[i]*xr-a2a[i]*yr;
+  xr=yr;
+  i+=1;
+);
+spl0=xl*outgain; spl1=xr*outgain;

@@ -1,0 +1,72 @@
+desc:Live32 RTA Tap
+options:gmem=Live32RTA no_meter
+
+slider1:enabled=0<0,1,1>-Enable analysis
+
+in_pin:Main L
+in_pin:Main R
+in_pin:Key L
+in_pin:Key R
+in_pin:Pre EQ L
+in_pin:Pre EQ R
+in_pin:Post EQ L
+in_pin:Post EQ R
+out_pin:Main L
+out_pin:Main R
+out_pin:Key L
+out_pin:Key R
+out_pin:Pre EQ L
+out_pin:Pre EQ R
+out_pin:Post EQ L
+out_pin:Post EQ R
+
+@init
+fft_size = 4096;
+hop_size = 1024;
+ring = 0;
+fftbuf = 8192;
+pos = 0;
+hop_count = 0;
+memset(ring,0,fft_size);
+memset(fftbuf,0,fft_size);
+
+@slider
+is_on = enabled >= 0.5;
+
+@sample
+is_on ? (
+  mono = (spl0 + spl1) * 0.5;
+  ring[pos] = mono;
+  pos += 1;
+  pos >= fft_size ? pos = 0;
+  hop_count += 1;
+  hop_count >= hop_size ? (
+    hop_count = 0;
+    i = 0;
+    loop(fft_size,
+      idx = pos + i;
+      idx >= fft_size ? idx -= fft_size;
+      win = 0.5 - 0.5*cos(2*$pi*i/(fft_size-1));
+      fftbuf[i] = ring[idx] * win;
+      i += 1;
+    );
+    fft_real(fftbuf,fft_size);
+    fft_permute(fftbuf,fft_size/2);
+    i = 0;
+    loop(32,
+      freq = 20 * (1000 ^ (i/31));
+      bin = floor(freq*fft_size/srate + 0.5);
+      bin < 1 ? bin = 1;
+      bin > fft_size/2-2 ? bin = fft_size/2-2;
+      re = fftbuf[bin*2];
+      im = fftbuf[bin*2+1];
+      mag = sqrt(re*re + im*im) / (fft_size*0.5);
+      db = 20 * log(max(mag,0.000000001)) / log(10);
+      prev = gmem[i];
+      // fast attack, gentle fall so the overlay is readable
+      gmem[i] = max(db, prev-1.25);
+      i += 1;
+    );
+    gmem[32] += 1;
+  );
+);

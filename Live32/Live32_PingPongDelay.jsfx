@@ -1,0 +1,45 @@
+desc:Live32 One-Shot PingPong Delay
+// Live32 v0.8.0 - wet-only two-echo ping-pong delay for the internal FX rack.
+// Echo 1 appears on one side at T, echo 2 on the opposite side at 2T. No feedback loop.
+
+slider1:500<80,1500,1>Delay Time (ms)
+slider2:-3<-24,0,0.1>First Echo (dB)
+slider3:-6<-24,0,0.1>Second Echo (dB)
+slider4:0<-24,6,0.1>Output Level (dB)
+slider5:0<0,1,1{L then R,R then L}>Direction
+
+@init
+max_delay_s = 3.2;
+bufsize = ceil(max_delay_s*srate)+4;
+buf = 0;
+pos = 0;
+
+function db2lin(db) (10^(db/20));
+
+@slider
+delay_samps = max(1,min(bufsize/2-2,slider1*0.001*srate));
+g1 = db2lin(slider2+slider4);
+g2 = db2lin(slider3+slider4);
+
+@sample
+input = (spl0+spl1)*0.5;
+buf[pos] = input;
+
+r1 = pos-delay_samps;
+r1 < 0 ? r1 += bufsize;
+r2 = pos-2*delay_samps;
+r2 < 0 ? r2 += bufsize;
+
+e1 = buf[floor(r1)]*g1;
+e2 = buf[floor(r2)]*g2;
+
+slider5 < 0.5 ? (
+  spl0 = e1;
+  spl1 = e2;
+) : (
+  spl0 = e2;
+  spl1 = e1;
+);
+
+pos += 1;
+pos >= bufsize ? pos=0;
