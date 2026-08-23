@@ -6,6 +6,7 @@ Live32 turns REAPER into a software-defined live mixing console. REAPER remains 
 
 > **Status: Public Beta — v1.2.3**  
 > Live32 is ready for community testing, but it is not yet a finished/stable release. Please test on copies of projects you care about.
+<img width="1436" height="962" alt="Screenshot 2026-08-19 184103" src="https://github.com/user-attachments/assets/7850ab19-093e-4f3e-955d-dfd1e3d5af6c" />
 
 ## Why Live32 exists
 
@@ -69,6 +70,8 @@ Live32 now offers two solo systems, selected on the **MONITOR** page.
 **DAW Solo** is intended for laptops and stereo-only interfaces. Enable **DAW Solo - use Main L/R** and Live32's Solo buttons use REAPER native solo-in-place through the normal Main L/R output. No separate monitor output is required. In this mode Main/FOH is intentionally affected and the PFL/AFL choices are bypassed.
 
 Console Solo remains the safe default for live use.
+<img width="576" height="361" alt="daw solo mode" src="https://github.com/user-attachments/assets/ef7125a8-1af6-4278-8744-b0e53977cb18" />
+
 
 ## Public beta testing
 
