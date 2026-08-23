@@ -1,7 +1,7 @@
--- Live32 v1.2.1 Launcher
+-- Live32 v1.2.0 Launcher
 -- Front door for new consoles, existing multitracks and training templates.
 
-local VERSION="1.2.1"
+local VERSION="1.2.0"
 local W,H=860,600
 local running=true
 local prev_mouse=0

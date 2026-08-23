@@ -1,7 +1,9 @@
--- Live32 v1.2.1 virtual live console for REAPER
+-- Live32 v1.2.3 virtual live console for REAPER
 -- Teaching-oriented M32-style workflow; not an exact visual or DSP clone.
 -- v1.1 adds the launcher/attach/import workflow while retaining the v1.0.6 console feature set.
 -- v1.2: dedicated monitor/solo bus, M32-style MONITOR page, PFL/AFL options and hardware output routing.
+-- v1.2.2: optional DAW SOLO mode for stereo-only interfaces; CONSOLE PFL/AFL remains the safe default.
+-- v1.2.3: fix DAW Solo monitor-page meter when no source is currently soloed.
 
 local W, H = 1440, 940
 local selected = 1
@@ -177,51 +179,51 @@ end
 
 local channels,fxreturns,buses,matrices,dcas,mutegroups,master,monitor=find_roles()
 if not channels[1] or not buses[1] then
-  reaper.ShowMessageBox("Live32 tracks were not found. Run Live32 Launcher first.","Live32 v1.2.1",0)
+  reaper.ShowMessageBox("Live32 tracks were not found. Run Live32 Launcher first.","Live32 v1.2.3",0)
   return
 end
 for i=1,32 do
   if not channels[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 32 Live32 input channels.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 32 Live32 input channels.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.3",0)
     return
   end
 end
 for i=1,8 do
   if not fxreturns[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 FX returns.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 FX returns.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.3",0)
     return
   end
 end
 for i=1,16 do
   if not buses[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 16 Live32 buses.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 16 Live32 buses.\n\nThis project is missing part of the Live32 console. Use Live32 Launcher to build or attach the console.","Live32 v1.2.3",0)
     return
   end
 end
 for i=1,8 do
   if not matrices[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 matrix outputs.\n\nThis project is missing the Live32 matrix section. Use Live32 Launcher to build or attach the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 matrix outputs.\n\nThis project is missing the Live32 matrix section. Use Live32 Launcher to build or attach the console.","Live32 v1.2.3",0)
     return
   end
 end
 for i=1,8 do
   if not dcas[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 DCA groups.\n\nThis project is missing the Live32 DCA section. Use Live32 Launcher to build or attach the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 8 Live32 DCA groups.\n\nThis project is missing the Live32 DCA section. Use Live32 Launcher to build or attach the console.","Live32 v1.2.3",0)
     return
   end
 end
 for i=1,6 do
   if not mutegroups[i] then
-    reaper.ShowMessageBox("This project does not yet contain all 6 Live32 mute groups. Use Live32 Launcher to build or repair the console.","Live32 v1.2.1",0)
+    reaper.ShowMessageBox("This project does not yet contain all 6 Live32 mute groups. Use Live32 Launcher to build or repair the console.","Live32 v1.2.3",0)
     return
   end
 end
 if not master then
-  reaper.ShowMessageBox("Live32 MAIN LR was not found. Use Live32 Launcher to build or repair the console.","Live32 v1.2.1",0)
+  reaper.ShowMessageBox("Live32 MAIN LR was not found. Use Live32 Launcher to build or repair the console.","Live32 v1.2.3",0)
   return
 end
 if not monitor then
-  reaper.ShowMessageBox("Live32 MONITOR/SOLO bus was not found.\n\nOpen Live32 Launcher and choose REPAIR / COMPLETE LIVE32 PROJECT once to add the v1.2 monitor architecture.","Live32 v1.2.1",0)
+  reaper.ShowMessageBox("Live32 MONITOR/SOLO bus was not found.\n\nOpen Live32 Launcher and choose REPAIR / COMPLETE LIVE32 PROJECT once to add the v1.2 monitor architecture.","Live32 v1.2.3",0)
   return
 end
 
@@ -905,15 +907,18 @@ end
 local function set_track_solo(tr,on)
   if not tr then return end
   set_ext(tr,"LIVE32_SOLO",on and "1" or "0")
-  -- Live32 SOLO is a monitor-bus/PFL-AFL function, never a REAPER solo-in-place.
-  reaper.SetMediaTrackInfo_Value(tr,"I_SOLO",0)
+  -- CONSOLE mode feeds the dedicated monitor bus and leaves FOH untouched.
+  -- DAW mode deliberately uses REAPER solo-in-place so users with only a stereo
+  -- interface can audition a source through their normal Main L/R output.
+  local daw_mode=monitor_get_bool and monitor_get_bool("LIVE32_MON_DAW_SOLO",false)
+  reaper.SetMediaTrackInfo_Value(tr,"I_SOLO",(daw_mode and on) and 2 or 0)
   local partners={fx_partner(tr),stereo_link_partner(tr)}
   local seen={}
   for _,partner in pairs(partners) do
     if partner and not seen[partner] then
       seen[partner]=true
       set_ext(partner,"LIVE32_SOLO",on and "1" or "0")
-      reaper.SetMediaTrackInfo_Value(partner,"I_SOLO",0)
+      reaper.SetMediaTrackInfo_Value(partner,"I_SOLO",(daw_mode and on) and 2 or 0)
     end
   end
   if on and monitor_get_bool and monitor_get_bool("LIVE32_MON_SELECT_FOLLOWS",false) and select_live32_track then select_live32_track(tr) end
@@ -973,6 +978,7 @@ function monitor_pfl_pan(tr)
 end
 function monitor_solo_summary()
   local count=0; local label="NO SOLO"; local any_afl=false; local any_pfl=false
+  local daw_mode=monitor_get_bool("LIVE32_MON_DAW_SOLO",false)
   local function test(tr,lab)
     if not tr then return end
     local manual=monitor_solo_on(tr)
@@ -987,25 +993,37 @@ function monitor_solo_summary()
   for i=1,16 do test(buses[i],string.format("BUS %02d",i)) end
   for i=1,8 do test(matrices[i],string.format("MTX %02d",i)) end
   if count>1 then label=tostring(count).." SOLO SOURCES" end
-  local mode=any_afl and any_pfl and "SOLO" or (any_afl and "AFL" or (any_pfl and "PFL" or "PFL"))
+  local mode=daw_mode and "DAW" or (any_afl and any_pfl and "SOLO" or (any_afl and "AFL" or (any_pfl and "PFL" or "PFL")))
   return count,label,mode
 end
 function update_monitor_solo_routing()
   if not monitor then return end
-  -- Clear any legacy REAPER solo-in-place states so the FOH path is never interrupted.
+  local daw_mode=monitor_get_bool("LIVE32_MON_DAW_SOLO",false)
   local all={}
   for i=1,32 do all[#all+1]=channels[i] end
   for i=1,8 do all[#all+1]=fxreturns[i] end
   for i=1,16 do all[#all+1]=buses[i] end
   for i=1,8 do all[#all+1]=matrices[i] end
-  for _,tr in ipairs(all) do if tr then reaper.SetMediaTrackInfo_Value(tr,"I_SOLO",0) end end
+
+  -- In DAW mode, Live32 SOLO keys deliberately become REAPER solo-in-place.
+  -- In normal CONSOLE mode all native REAPER solos are cleared so FOH can never
+  -- be interrupted by pressing a console SOLO key. DCA controls never carry audio.
+  for _,tr in ipairs(all) do
+    if tr then
+      local active=monitor_solo_on(tr) or monitor_active_dca_for_track(tr)
+      reaper.SetMediaTrackInfo_Value(tr,"I_SOLO",(daw_mode and active) and 2 or 0)
+    end
+  end
   for i=1,8 do if dcas[i] then reaper.SetMediaTrackInfo_Value(dcas[i],"I_SOLO",0) end end
 
   local solo_count=select(1,monitor_solo_summary())
   local source=monitor_get("LIVE32_MON_SOURCE","MAIN")
   local mainidx=monitor_send_index(master)
   if mainidx>=0 then
-    reaper.SetTrackSendInfo_Value(master,0,mainidx,"B_MUTE",(solo_count>0 or source=="OFF") and 1 or 0)
+    -- DAW mode does not use the monitor bus: this prevents accidental doubling
+    -- if MONITOR happens to be patched to the same stereo pair as MAIN.
+    local mute_main=daw_mode or (solo_count>0 or source=="OFF")
+    reaper.SetTrackSendInfo_Value(master,0,mainidx,"B_MUTE",mute_main and 1 or 0)
     reaper.SetTrackSendInfo_Value(master,0,mainidx,"I_SENDMODE",monitor_get_bool("LIVE32_MON_MASTER_FADER",false) and 0 or 3)
     reaper.SetTrackSendInfo_Value(master,0,mainidx,"D_VOL",1.0)
     reaper.SetTrackSendInfo_Value(master,0,mainidx,"D_PAN",0.0)
@@ -1021,7 +1039,7 @@ function update_monitor_solo_routing()
         local via_dca=monitor_active_dca_for_track(tr)
         local active=manual or via_dca
         local afl=monitor_source_afl(tr,(not manual) and via_dca)
-        reaper.SetTrackSendInfo_Value(tr,0,si,"B_MUTE",active and 0 or 1)
+        reaper.SetTrackSendInfo_Value(tr,0,si,"B_MUTE",(daw_mode or not active) and 1 or 0)
         reaper.SetTrackSendInfo_Value(tr,0,si,"I_SENDMODE",afl and 0 or 3)
         reaper.SetTrackSendInfo_Value(tr,0,si,"I_SRCCHAN",0)
         reaper.SetTrackSendInfo_Value(tr,0,si,"D_VOL",(active and (not afl) and use_dim) and dimlin or 1.0)
@@ -1031,9 +1049,8 @@ function update_monitor_solo_routing()
   end
   local leveldb=tonumber(monitor_get("LIVE32_MON_LEVEL_DB","0")) or 0
   reaper.SetMediaTrackInfo_Value(monitor,"D_VOL",db2lin(leveldb))
-  reaper.SetMediaTrackInfo_Value(monitor,"B_MUTE",0)
+  reaper.SetMediaTrackInfo_Value(monitor,"B_MUTE",daw_mode and 1 or 0)
 end
-
 -- MAIN BUS controls. REAPER's D_PAN maps naturally to the M32 PAN/BAL encoder
 -- for mono input channels and mix buses, while B_MAINSEND is the equivalent of
 -- assigning/de-assigning that channel or bus to Main L/R. Linked FX returns keep
@@ -1766,7 +1783,15 @@ end
 
 local function meter(x,y,w,h,tr)
   rect(x,y,w,h,C.black,true)
-  local peak=math.max(reaper.Track_GetPeakInfo(tr,0),reaper.Track_GetPeakInfo(tr,1))
+  -- A meter can legitimately have no source (for example immediately after
+  -- enabling DAW Solo before anything has actually been soloed). Treat that
+  -- as silence rather than passing nil to Track_GetPeakInfo.
+  local peak=0
+  if tr then
+    local l=reaper.Track_GetPeakInfo(tr,0) or 0
+    local r=reaper.Track_GetPeakInfo(tr,1) or 0
+    peak=math.max(l,r)
+  end
   local pdb=lin2db(peak)
   local n=clamp((pdb+60)/60,0,1)
   local c=pdb>-3 and C.red or (pdb>-12 and C.yellow or C.green)
@@ -1826,8 +1851,10 @@ local function draw_meter_bridge(x,y,w,h)
   local total=colw*3+gap*2; local x0=x+(w-total)/2
   local ml=reaper.Track_GetPeakInfo(master,0); local mr=reaper.Track_GetPeakInfo(master,1)
   local solo_count,solo_label,solo_mode=monitor_solo_summary(); local solo_peak=0
-  if solo_count>0 and monitor then
-    solo_peak=math.max(reaper.Track_GetPeakInfo(monitor,0) or 0,reaper.Track_GetPeakInfo(monitor,1) or 0)
+  if solo_count>0 then
+    local meter_tr=monitor
+    if monitor_get_bool('LIVE32_MON_DAW_SOLO',false) then meter_tr=selected_meter_track() end
+    if meter_tr then solo_peak=math.max(reaper.Track_GetPeakInfo(meter_tr,0) or 0,reaper.Track_GetPeakInfo(meter_tr,1) or 0) end
   end
   led_meter_column(x0,meter_y,colw,meter_h,ml,"L")
   led_meter_column(x0+colw+gap,meter_y,colw,meter_h,mr,"R")
@@ -3081,9 +3108,13 @@ end
 function draw_lcd_monitor(tr,x,y,w,h)
   screen_frame(x,y,w,h,'MONITOR')
   local solo_count,solo_label,solo_mode=monitor_solo_summary()
-  -- Monitor meter on the left, similar to the M32 monitor page.
+  local daw_mode=monitor_get_bool('LIVE32_MON_DAW_SOLO',false)
+  -- Monitor meter on the left. In DAW mode the dedicated monitor bus is bypassed,
+  -- so meter the active native-solo source instead.
+  local mon_meter=monitor
+  if daw_mode then local sm=selected_meter_track(); mon_meter=sm end
   local mx=x+18; local my=y+62; local mh=182
-  meter(mx,my,12,mh,monitor); meter(mx+20,my,12,mh,monitor)
+  meter(mx,my,12,mh,mon_meter); meter(mx+20,my,12,mh,mon_meter)
   centered(mx-3,my+mh+8,38,'L   R',8,C.dim)
   monitor_knob('mon_level',x+52,y+286,26,'MONITOR LEVEL','LIVE32_MON_LEVEL_DB',-60,10,0,function(v)return fmt_db(v)..' dB' end)
 
@@ -3094,6 +3125,7 @@ function draw_lcd_monitor(tr,x,y,w,h)
   monitor_checkbox(x+76,y+162,'DCA Solo AFL','LIVE32_MON_DCA_AFL',true)
   monitor_checkbox(x+76,y+187,'Use DIM for PFL','LIVE32_MON_DIM_PFL',false)
   monitor_checkbox(x+76,y+212,'Use Master Fader','LIVE32_MON_MASTER_FADER',false)
+  monitor_checkbox(x+76,y+237,'DAW Solo - use Main L/R','LIVE32_MON_DAW_SOLO',false)
 
   monitor_knob('mon_dim',x+300,y+119,24,'DIM ATTENUATION','LIVE32_MON_DIM_DB',-40,0,-20,function(v)return fmt_db(v)..' dB' end)
 
@@ -3114,13 +3146,20 @@ function draw_lcd_monitor(tr,x,y,w,h)
 
   -- A dedicated routing warning makes it obvious why a PFL may be silent.
   local hw=tonumber(get_ext(monitor,'LIVE32_HW_OUT') or '-1') or -1
-  if hw<0 then
+  if daw_mode then
+    centered(x+330,y+239,140,'DAW SOLO USES MAIN L/R',8,C.green)
+    centered(x+330,y+255,140,'Monitor output not required',8,C.dim)
+  elseif hw<0 then
     centered(x+330,y+239,140,'MONITOR OUTPUT UNASSIGNED',8,C.red)
     centered(x+330,y+255,140,'Set it on ROUTING page',8,C.dim)
   else
     centered(x+330,y+241,140,'MONITOR OUTPUT: '..hw_route_label(hw,true,false),8,C.green)
   end
-  centered(x+84,y+h-27,w-100,'PFL/AFL behaviour is selected here; SOLO keys remain simple.',9,C.dim)
+  if daw_mode then
+    centered(x+84,y+h-27,w-100,'DAW SOLO is solo-in-place: Main/FOH is affected; PFL/AFL options are bypassed.',9,C.yellow)
+  else
+    centered(x+84,y+h-27,w-100,'CONSOLE SOLO: PFL/AFL uses the independent Monitor bus; FOH remains untouched.',9,C.dim)
+  end
 end
 
 -- Hardware output patching ----------------------------------------------------------
@@ -3201,8 +3240,8 @@ function draw_lcd_routing(tr,x,y,w,h)
   if route_page==1 then
     routing_selector(x+28,y+91,w-56,'FOH - MAIN LR',master,true,true)
     routing_selector(x+28,y+161,w-56,'ENGINEER MONITOR / SOLO',monitor,true,false)
-    text(x+28,y+230,'FOH remains independent from the Solo bus.',9,C.green)
-    text(x+28,y+249,'For true PFL/AFL operation, patch MONITOR to a different hardware pair.',9,C.dim)
+    text(x+28,y+230,'CONSOLE SOLO keeps FOH independent from the Solo bus.',9,C.green)
+    text(x+28,y+249,'Stereo-only interface? Enable DAW Solo on MONITOR; no separate output is required.',9,C.dim)
   else
     local first=route_page==2 and 1 or (route_page==3 and 9 or 1)
     local arr=(route_page==4) and matrices or buses
@@ -3460,23 +3499,24 @@ function draw_surface_master_status(tr,x,y,w,h)
   centered(x,y+310,w,"Select MAIN LR below",8,C.dim)
 end
 
-function draw_live32_logo(x,y,w)
-  -- Independent Live32 branding for the public release.
+function draw_midas_m32_logo(x,y,w)
+  -- Lightweight vector treatment so the console has a clear MIDAS M32 identity
+  -- without requiring external image assets.
   local silver={0.82,0.84,0.85}
-  local cyan={0.30,0.68,0.98}
-  local cx=x+17; local cy=y+13
-  circle(cx,cy,10,silver,false)
-  line(cx-5,cy,cx+5,cy,silver,2)
-  line(cx,cy-5,cx,cy+5,silver,2)
+  local silver2={0.56,0.59,0.61}
+  local cx=x+18; local cy=y+13
+  circle(cx,cy,10,silver2,false)
+  circle(cx,cy,4,silver,true)
+  for i=0,3 do
+    local a=math.rad(45+i*90)
+    line(cx+math.cos(a)*5,cy+math.sin(a)*5,cx+math.cos(a)*9,cy+math.sin(a)*9,silver,2)
+  end
   gfx.setfont(1,"Arial Black",20)
   setc(silver)
-  gfx.x=x+35; gfx.y=y+1; gfx.drawstr("LIVE")
-  gfx.setfont(1,"Arial Black",20)
-  setc(cyan)
-  gfx.x=x+88; gfx.y=y+1; gfx.drawstr("32")
-  gfx.setfont(1,"Arial",8)
+  gfx.x=x+36; gfx.y=y+1; gfx.drawstr("MIDAS")
+  gfx.setfont(1,"Arial",12)
   setc(C.dim)
-  gfx.x=x+128; gfx.y=y+10; gfx.drawstr("VIRTUAL LIVE CONSOLE")
+  gfx.x=x+111; gfx.y=y+9; gfx.drawstr("M32")
 end
 
 function draw_selected_channel()
@@ -3488,7 +3528,7 @@ function draw_selected_channel()
   text(255,31,control_name(),15,C.text)
   draw_transport()
   -- Logo sits above the LCD, clear of the transport controls and SOF status.
-  draw_live32_logo(862,25,290)
+  draw_midas_m32_logo(862,25,290)
   local sof_label="MAIN LR"
   if control_is_master() then sof_label="MAIN LR MASTER"
   elseif control_is_dca() then sof_label="DCA / VCA"
@@ -3953,7 +3993,7 @@ function draw()
   rect(0,0,gfx.w,gfx.h,C.bg,true)
   draw_selected_channel()
   draw_console_lower()
-  text(1220,918,"Live32 v1.2.1",11,C.dim)
+  text(1220,918,"Live32 v1.2.3",11,C.dim)
   text(32,918,"Esc closes",11,C.dim)
 end
 
@@ -3997,5 +4037,5 @@ for i=1,32 do if channels[i] then reaper.SetMediaTrackInfo_Value(channels[i],"I_
 for i=1,8 do if fxreturns[i] then reaper.SetMediaTrackInfo_Value(fxreturns[i],"I_NCHAN",math.max(8,reaper.GetMediaTrackInfo_Value(fxreturns[i],"I_NCHAN") or 2)) end end
 apply_all_bus_tap_modes()
 update_monitor_solo_routing()
-gfx.init("Live32 v1.2.1 — Virtual Live Console",W,H,0)
+gfx.init("Live32 v1.2.3 — Virtual Live Console",W,H,0)
 loop()

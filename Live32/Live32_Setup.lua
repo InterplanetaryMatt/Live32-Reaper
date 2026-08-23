@@ -1,8 +1,8 @@
--- Live32 v1.2.1 setup engine
+-- Live32 v1.2.0 setup engine
 -- Can build a clean console or attach selected existing tracks as Live32 inputs.
 -- Normally launched from Live32_Launcher.lua.
 
-local VERSION="1.2.1"
+local VERSION="1.2.0"
 local SETUP_MODE=_G.LIVE32_SETUP_MODE or "new" -- new | attach | repair
 local ATTACH_TRACKS=_G.LIVE32_ATTACH_TRACKS or {}
 local ATTACH_KEEP_FX=(_G.LIVE32_ATTACH_KEEP_FX ~= false)
