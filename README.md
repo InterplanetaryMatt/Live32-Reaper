@@ -6,6 +6,7 @@ Live32 turns REAPER into a software-defined live mixing console. REAPER remains 
 
 > **Status: Public Beta — v1.2.3**  
 > Live32 is ready for community testing, but it is not yet a finished/stable release. Please test on copies of projects you care about.
+<img width="1436" height="962" alt="Screenshot 2026-08-19 184103" src="https://github.com/user-attachments/assets/ffeacedc-4930-41ee-9342-d137af49fb87" />
 
 ## Why Live32 exists
 
