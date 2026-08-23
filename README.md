@@ -6,7 +6,6 @@ Live32 turns REAPER into a software-defined live mixing console. REAPER remains 
 
 > **Status: Public Beta — v1.2.3**  
 > Live32 is ready for community testing, but it is not yet a finished/stable release. Please test on copies of projects you care about.
-<img width="1436" height="962" alt="Screenshot 2026-08-19 184103" src="https://github.com/user-attachments/assets/ffeacedc-4930-41ee-9342-d137af49fb87" />
 
 ## Why Live32 exists
 
@@ -26,6 +25,7 @@ The workflow is inspired by familiar digital live-console conventions, particula
 - 6 mute groups
 - Main LR master
 - Dedicated Monitor/Solo bus
+- Optional DAW Solo mode for stereo-only interfaces
 - Channel PFL/AFL and bus/DCA AFL options
 - Sends on Faders
 - Odd/even stereo linking for channels and buses
@@ -62,15 +62,13 @@ For detailed instructions see [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Monitor / Solo setup
 
-Live32 uses a dedicated Monitor/Solo path rather than REAPER's normal solo-in-place behaviour. This means soloing a channel does **not** interrupt the Main LR mix.
+Live32 now offers two solo systems, selected on the **MONITOR** page.
 
-For a true FOH-style setup:
+**Console Solo (default)** uses the dedicated Monitor/Solo path. Soloing a source does **not** interrupt Main LR. Route **Main LR** to FOH and **Monitor L/R** to a different hardware pair, then choose channel PFL/AFL, bus AFL and DCA AFL behaviour.
 
-- route **Main LR** to the FOH output pair;
-- route **Monitor L/R** to a different interface/output pair;
-- use the **MONITOR** page to choose channel PFL/AFL, bus AFL and DCA AFL behaviour.
+**DAW Solo** is intended for laptops and stereo-only interfaces. Enable **DAW Solo - use Main L/R** and Live32's Solo buttons use REAPER native solo-in-place through the normal Main L/R output. No separate monitor output is required. In this mode Main/FOH is intentionally affected and the PFL/AFL choices are bypassed.
 
-If Monitor L/R is unassigned, Live32 can still perform the internal solo logic but there will be no separate physical monitor output.
+Console Solo remains the safe default for live use.
 
 ## Public beta testing
 
