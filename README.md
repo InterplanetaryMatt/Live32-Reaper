@@ -4,7 +4,7 @@
 
 Live32 turns REAPER into a software-defined live mixing console. REAPER remains the audio, routing and project engine in the background while Live32 provides a purpose-built live-console surface, custom JSFX processing, buses, matrices, DCAs, FX, scenes, routing, monitor/PFL/AFL behaviour and Sends on Faders.
 
-> **Status: Public Beta — v1.2.1**  
+> **Status: Public Beta — v1.2.3**  
 > Live32 is ready for community testing, but it is not yet a finished/stable release. Please test on copies of projects you care about.
 
 ## Why Live32 exists
